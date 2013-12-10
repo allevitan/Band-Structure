@@ -1,0 +1,15 @@
+The input will be provided via a json file which must contain the following key-value pairs:
+
+REV 1 will aim to accept:
+
+"Z": the atomic number of the atom in question
+"lattice constant": in units of bohr radii, the lattice constant 
+
+and will assume that the lattice is a diamond-lattice.
+
+REV 2 (if ever reached) will aim to accept (subject to change):
+
+"Z": the atomic number of the atom in question
+"lattice constants": in units of bohr radii, an object with keys "a","b",and "c", each containing the length of one direction of the primitive cell.
+"primitive transformations":  a list of lists representing the appropriate primitive translations, to be scaled by the lattice constants
+"positions": a list of lists representing the positions of atoms within the unit cell, to be scaled by the lattice constants.
