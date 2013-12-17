@@ -6,6 +6,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import itertools as it
 from time import time
 
+
 def reciprocal_vectors(l_vecs):
     """
     Finds the reciprocal vectors for a set of 3 arbitrary lattice
@@ -28,7 +29,7 @@ def make_basis(r_vecs,r):
     we will constrain our wavevectors to remain within.
     """
     #note: find a better way to calculate n than just making it big
-    n=10
+    n=15
     scalings = list(it.product(range(-n,n+1),repeat=3))
     basis = []
     for scaling in scalings:
@@ -94,7 +95,7 @@ def electron_terms(rho,basis,l_vecs):
               in np.concatenate((rho[np.newaxis,:],basis.transpose())).transpose()}
     #calculates the factors due to the electron 
     def rho_factor(H):
-        He = np.zeros((H.shape[0],H.shape[1]))
+        He = np.zeros((H.shape[0],H.shape[1]),dtype=np.complex64)
         for i in range(0,H.shape[0]):
             for j in range(0, H.shape[1]):
                 He[i,j] = by_vec.get(tuple(H[i,j]),0)
@@ -130,6 +131,23 @@ def find_rhos(phis, basis, l_vecs):
                    for i in range(0,basis.shape[0])]
     return np.array(convolution).transpose() / unit_vol(l_vecs) 
 
+def fill_states(Es, num_states):
+    """
+    Return a matrix with the occupancy of each state in Es - either
+    a 0,1, or 2.
+    """
+    states = np.zeros(Es.shape)
+    idx = np.argsort(Es)[:np.ceil(num_states/2)]
+    states[idx] = 2
+    if int(num_states/2) != num_states:
+        states[idx[-1]] = 1
+    return states
+
+def fermi_energy(Es, num_states):
+    """
+    Returns the fermi energy
+    """
+    return np.sort(Es)[int(num_states/2)-1]
 
 def stupid_band_structure(l_vecs, atoms, resolution,r):
     """
@@ -145,7 +163,7 @@ def stupid_band_structure(l_vecs, atoms, resolution,r):
     H0 = cross_terms(atoms,basis,l_vecs)
     print "Cross terms made: ", time() - t, "seconds"
     t = time()
-    num_bands = sum(zip(*atoms)[0]) / 2 + 3 # of bands to show
+    num_bands = sum(zip(*atoms)[0]) / 2 + 10 # of bands to show
     bands = np.zeros((num_bands,2*resolution))
     
     for i in range(0,resolution):
@@ -155,12 +173,13 @@ def stupid_band_structure(l_vecs, atoms, resolution,r):
         H = H0 + free_energies(((r_vecs[0] + r_vecs[1]) * i) / (2 * (resolution-1)), basis)
         bands[:,resolution+i] = np.sort(np.real(np.linalg.eigvalsh(H)))[0:num_bands]
     print "Band structure calculated: ", (time() - t) / (2*resolution), 'seconds per wavevector'
-    plt.plot(bands.transpose())
+    
+    plt.plot(bands.transpose() - fermi_energy(np.ravel(bands),
+                                    2*resolution*sum(zip(*atoms)[0])))
     plt.xlabel('Reciprocal Lattice Points')
     plt.ylabel('Energy (Rydbergs)')
-    plt.axis([0,2*resolution,0,5])
+    plt.axis([0,2*resolution,-3,3])
     plt.show()
-
 
 def band_structure(l_vecs, atoms, resolution,r,bri_res=5):
     """
@@ -171,25 +190,34 @@ def band_structure(l_vecs, atoms, resolution,r,bri_res=5):
     basis =  make_basis(r_vecs,r)
     b_zone = first_brillouin(r_vecs,bri_res)
     H0 = cross_terms(atoms,basis,l_vecs)
-    He = np.zeros(H0.shape)
+    He = np.zeros(H0.shape,dtype=np.complex64)
     bands_filled = float(sum(zip(*atoms)[0])) / 2
-    e_per_band = np.tile(2,np.ceil(bands_filled))
-    if bands_filled != int(bands_filled):
-        e_per_band[-1] = 1    
     bands_filled = np.ceil(bands_filled)
-    bands_shown = bands_filled + 3 # of bands to show
+    band_buffer = 4
+    bands_possible = bands_filled + band_buffer
+    bands_shown = bands_filled + 10 # of bands to show
     print "Initial setup complete"
+    
+    #Refines the lattice potential with the approximated electron states
     for i in range(0,10):
         H0e = H0 + He
-        H = H0e + free_energies(np.array((0,0,0)), basis)
-        (Es,phis) = np.linalg.eigh(H)
-        (Es, phis) = (Es[:bands_filled],phis[:bands_filled,:])
+        Es = np.zeros((b_zone.shape[0]*bands_possible,))
+        phis = np.zeros((b_zone.shape[0]*bands_possible,
+                         basis.shape[0]),dtype=np.complex64)
+        for j in range(0,b_zone.shape[0]):
+            H = H0e + free_energies(np.array((0,0,0)), basis)
+            (tEs,tphis) = np.linalg.eigh(H)
+            #Pull a few extra bands in case of overlap
+            Es[j*bands_possible:(j+1)*bands_possible] = tEs[:bands_possible]
+            phis[j*bands_possible:(j+1)*bands_possible] = tphis[:bands_possible,:]
+        e_per_band = fill_states(Es,b_zone.shape[0]*bands_filled*2)
         rhos = find_rhos(phis,basis,l_vecs) * e_per_band[:,np.newaxis]
-        rho = np.sum(rhos, axis=0)
+        rho = np.sum(rhos, axis=0) / b_zone.shape[0]
         He = electron_terms(rho,basis,l_vecs)
         print "Iteration", i+1, "Complete"
         
 
+    #Calculates the band structure using the final potential
     bands = np.zeros((bands_shown,2*resolution))
     for i in range(0,resolution):
         H = H0 + He + free_energies((r_vecs[0] * i) / (2 * (resolution-1)), basis)
@@ -198,10 +226,12 @@ def band_structure(l_vecs, atoms, resolution,r,bri_res=5):
         H = H0 + He + free_energies(((r_vecs[0] + r_vecs[1]) * i) / (2 * (resolution-1)), basis)
         bands[:,resolution+i] = np.sort(np.real(np.linalg.eigvalsh(H)))[0:bands_shown]
 
-    plt.plot(bands.transpose())
+
+    #Plots the results
+    plt.plot(bands.transpose()-fermi_energy(Es,b_zone.shape[0]*bands_filled*2))
     plt.xlabel('Reciprocal Lattice Points')
     plt.ylabel('Energy (Rydbergs)')
-    plt.axis([0,2*resolution,0,5])
+    plt.axis([0,2*resolution,-3,3])
     plt.show()
         
 
@@ -213,9 +243,15 @@ if __name__=='__main__':
     carbon_atoms = ((6,np.array((0,0,0))),(6,np.array((0.25,0.25,0.25))*carbon_l_const))
     silicon_l_const = 10.26 #bohr radii
     silicon_l_vecs = np.array(((0.5,0.5,0),
-                       (0,0.5,0.5),
-                       (0.5,0,0.5))) * silicon_l_const
+                               (0,0.5,0.5),
+                               (0.5,0,0.5))) * silicon_l_const
     silicon_atoms = ((14,np.array((0,0,0))),(14,np.array((0.25,0.25,0.25))*silicon_l_const))
+    
+    lithium_l_const = 6.6 #bohr radii
+    lithium_l_vecs = np.array(((-0.5,0.5,0.5),
+                               (0.5,-0.5,0.5),
+                               (0.5,0.5,-0.5))) * silicon_l_const
+    lithium_atoms = ((3,np.array((0,0,0))),)
 
     def brillouin_zone_demo(l_vecs):
         r_vecs = reciprocal_vectors(l_vecs)
@@ -226,7 +262,8 @@ if __name__=='__main__':
         plt.show()
     
     #brillouin_zone_demo(carbon_l_vecs)
-
+    
     #stupid_band_structure(silicon_l_vecs, silicon_atoms, 50,3)
-    #stupid_band_structure(carbon_l_vecs, carbon_atoms, 50,3)
-    band_structure(carbon_l_vecs, carbon_atoms, 50,4)
+    stupid_band_structure(carbon_l_vecs, carbon_atoms, 50,7)
+    #band_structure(lithium_l_vecs, lithium_atoms, 50,3,bri_res=4)
+    #band_structure(carbon_l_vecs, carbon_atoms, 50,4,bri_res=4)
