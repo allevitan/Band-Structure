@@ -1,12 +1,13 @@
 {
-    "name": Diamond
+    "name": "Silicon",
+    "solver": "central",
     "atoms": [
         {
-            "Z": 14
+            "Z": 14,
             "loc": [0,0,0]
         },
         {
-            "Z": 14
+            "Z": 14,
             "loc": [0.25,0.25,0.25]
         }
     ],

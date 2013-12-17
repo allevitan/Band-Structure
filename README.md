@@ -1,3 +1,7 @@
-Band-Structure is currently a playground repository as I play around trying to calculate the band structure of silicon.
+Band-Structure is the skeleton of a band structure calculating tool.
 
-I'm currently planning on implementing the orthogonalized plane wave method outlined in C. Herring' paper, possibly using a pseudopotential spprocimation developed since then.
+It currently implements a central equation solver using a bare coulomb potential - not the quickest or most accurate technique in the book by any means. The program is designed to allow new solvers to be quickly developed and integrated into the program.
+
+The program is used by preparing a json file that describes the lattice and specifies what solver to use. Then, edit calculate.py to point to your input file and run "$python calculate.py."
+
+Band Structure!

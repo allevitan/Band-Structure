@@ -1,21 +1,23 @@
 The input will be provided via a json file which must contain the following key-value pairs:
 
 "name": the name of the crystal being described
+"solver": the name of the solver to use - currently, "central" is the only accepted input
 "atoms": a list of objects, each with keys "Z" and "loc". "Z" contains the atomic number of the atom at location "loc" - loc is in units of the lattice constants.
 "lattice constants": in units of bohr radii, an object with keys "a","b",and "c", each containing the length of one direction of the primitive cell.
 "primitive transforms":  a list of lists representing the appropriate primitive translations, to be scaled by the lattice constants
 
-Example input:
+Example input (Diamond.json):
 
 {
-    "name": Diamond
+    "name": "Diamond",
+    "solver": "central",
     "atoms": [
         {
-            "Z": 6
+            "Z": 6,
             "loc": [0,0,0]
         },
         {
-            "Z": 6
+            "Z": 6,
             "loc": [0.25,0.25,0.25]
         }
     ],
