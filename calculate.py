@@ -2,6 +2,7 @@ import json
 import numpy as np
 
 import viewers
+import bravais
 
 import solvers.central
 solver_dict = {"central":solvers.central}
