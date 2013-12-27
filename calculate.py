@@ -1,7 +1,7 @@
 import json
 import numpy as np
 
-import viewers
+from viewers import standard as viewer
 import bravais
 
 import solvers.central
@@ -27,4 +27,4 @@ solver = solver_dict[params['solver']]
 calculator = solver.Calculator(atoms, l_vecs, **params.get('options',{}))
 
 
-viewers.view_band_structure(calculator,50)
+viewer.view_band_structure(calculator,50)
