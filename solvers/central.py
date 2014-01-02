@@ -1,7 +1,6 @@
 from __future__ import division
 import numpy as np
 import itertools as it
-from lattice_tools import reciprocal_vectors, unit_vol
 
 def make_basis(r_vecs,n):
     """
@@ -33,7 +32,7 @@ def clean_diagonal(H):
     return H
 
 
-def cross_terms(atoms,basis, l_vecs):
+def cross_terms(lattice,basis):
     """
     Makes a matrix that contains all the cross terms in the
     hamiltonian. These terms do not depend on the wavevector,
@@ -41,16 +40,12 @@ def cross_terms(atoms,basis, l_vecs):
     this matrix will become the hamiltonian at any wavevector.
     """
 
-    locs = np.array([loc for (z,loc) in atoms])
-    zs = np.array([z for (z,loc) in atoms])
-
-    #fourier_factor is due to the atomic number and positions of atoms in
-    #the unit cell, and modifies the fourier transform of the potential
-    fourier_factor = lambda(H): np.sum(np.exp(-1j * np.sum(H[:,:,np.newaxis,:] * locs,axis=3)) * zs,axis=2)
     H0 = basis[:,np.newaxis,:] - basis
     with np.errstate(divide='ignore'):
-        H0 = (fourier_factor(H0) * clean_diagonal(fourier_coulomb(H0))) 
-    return H0 / unit_vol(l_vecs)
+        H0 = sum((z*factors for (z,factors) 
+                  in lattice.structure_factors(H0).iteritems())) \
+             * clean_diagonal(fourier_coulomb(H0))
+    return H0 / lattice.unit_vol
 
 
 def free_energies(k, basis):
@@ -63,19 +58,15 @@ def free_energies(k, basis):
 
 class Calculator():
 
-    def __init__(self, atoms, l_vecs, basis_size=200):
-        self.atoms = atoms
-        self.l_vecs = l_vecs
-        self.r_vecs = reciprocal_vectors(l_vecs)
-        self.basis = make_basis(self.r_vecs,basis_size)
-        self.H0 = cross_terms(atoms,self.basis,l_vecs)
-        self.num_states = sum(zip(*atoms)[0])
+    def __init__(self, lattice, basis_size=200):
+        self.lattice = lattice
+        self.basis = make_basis(self.lattice.r_vecs,basis_size)
+        self.H0 = cross_terms(self.lattice,self.basis)
+        self.filled_bands = sum([z*points.shape[0] for (z,points)
+                                 in self.lattice.basis.iteritems()])
     
     def at_k(self,k,num_bands=None):
-        num_bands = num_bands or (self.num_states * 3 / 4)
+        num_bands = num_bands or (self.filled_bands * 3 / 4)
         H = self.H0 + free_energies(k, self.basis)
         return np.sort(np.real(np.linalg.eigvalsh(H)))[0:num_bands]
-
-
-
 

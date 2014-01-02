@@ -2,7 +2,8 @@ import json
 import numpy as np
 
 from viewers import standard as viewer
-import bravais
+#import bravais
+from lattice import Lattice
 
 import solvers.central
 solver_dict = {"central":solvers.central}
@@ -17,14 +18,16 @@ with open(filename) as param_file:
 l_consts = (params['lattice constants']['a'],
             params['lattice constants']['b'],
             params['lattice constants']['c'])
-atoms = [(atom['Z'], np.array(atom['loc'])*l_consts)
-         for atom in params['atoms']]
+basis = {int(z): np.array(points)*l_consts
+         for (z,points) in params['atoms'].iteritems()}
+
 l_vecs = np.array([np.array(vec)*l_consts for vec 
                     in params['primitive transforms']])
 
 #Generate a calculator object for the system
+lattice = Lattice(l_vecs,basis)
 solver = solver_dict[params['solver']]
-calculator = solver.Calculator(atoms, l_vecs, **params.get('options',{}))
+calculator = solver.Calculator(lattice, **params.get('options',{}))
 
 
 viewer.view_band_structure(calculator,50)
