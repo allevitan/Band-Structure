@@ -2,7 +2,8 @@ from __future__ import division
 import numpy as np
 from solvers.lattice_tools import reciprocal_vectors
 from viewers import path_tools
-
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 
 fcc_arr = np.array([[0,1,1],
@@ -28,7 +29,12 @@ pt2_arr = np.array([[1,0,0],
 if __name__ == "__main__":
     
     from viewers import standard as viewer
-    viewer.plot_first_brillouin(pt1_arr)
+    fig = plt.figure()
+    ax = fig.add_subplot(111,projection='3d')
+    viewer.plot_first_brillouin(bcc_arr,lattice='body-centered-cubic',
+                                ax=ax,plot=False)
+    viewer.plot_path(bcc_arr,lattice='body-centered-cubic',ax=ax,plot=False)
+    plt.show()
     #testing the 2D version
     # square_vecs = np.array([[1,0],[0,1]])
     # hex_vecs = np.array([[1,0],[0.5,np.sqrt(3)/2]])
